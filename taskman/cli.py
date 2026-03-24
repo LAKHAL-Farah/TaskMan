@@ -7,7 +7,7 @@ from rich.panel import Panel
 from rich.columns import Columns 
 
 from taskman.models import Task, DeadlineTask, PriorityTask
-from taskman.storage import load_tasks, save_tasks
+from taskman.storage import load_tasks, save_tasks, load_tasks_verbose
 
 
 console = Console()
@@ -201,37 +201,40 @@ def handle_stats(args, tasks):
 
 
 def main():
-    
-    tasks = load_tasks()
-    
     parser = argparse.ArgumentParser(description="Task Manager CLI")
+    parser.add_argument("--verbose", action="store_true", help="Show animated progress when loading tasks")
+
     subparsers = parser.add_subparsers(dest="command")
-    
+
     # add command
     parser_add = subparsers.add_parser("add")
     parser_add.add_argument("title")
     parser_add.add_argument("--due", help="Deadline YYYY-MM-DD")
     parser_add.add_argument("--priority", type=int, help="Priority level")
-    
+
     # list command
     parser_list = subparsers.add_parser("list")
     parser_list.add_argument("--filter", choices=["all","done","pending"], default="all")
-    
+
     # done command
     parser_done = subparsers.add_parser("done")
     parser_done.add_argument("id", type=int)
-    
+
     # delete command
     parser_delete = subparsers.add_parser("delete")
     parser_delete.add_argument("id", type=int)
 
-
+    # interactive command
     parser_interactive = subparsers.add_parser("interactive")
 
+    # stats command
     parser_stats = subparsers.add_parser("stats")
 
     args = parser.parse_args()
-    
+
+
+    tasks = load_tasks_verbose(verbose=args.verbose)
+
     if args.command == "add":
         handle_add(args, tasks)
     elif args.command == "list":
