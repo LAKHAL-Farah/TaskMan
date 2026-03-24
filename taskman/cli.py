@@ -5,6 +5,7 @@ from rich.table import Table
 from rich import box
 from rich.panel import Panel
 from rich.columns import Columns 
+from taskman.themes import theme
 
 from taskman.models import Task, DeadlineTask, PriorityTask
 from taskman.storage import load_tasks, save_tasks, load_tasks_verbose
@@ -21,7 +22,7 @@ def handle_add(args,tasks):
     tasks.append(task)
     save_tasks(tasks)
 
-    console.print(f"[green]Added task:[/] {task}")
+    console.print(f"[{theme.done_color}]Added task:[/] {task}")
 
 
 def handle_list(args, tasks):
@@ -37,8 +38,8 @@ def handle_list(args, tasks):
         return
 
     table = Table(
-        box=box.ROUNDED,
-        header_style="bold purple"
+        box=getattr(box, theme.border_style),
+        header_style=theme.header_color
     )
 
     table.add_column("ID", width=4)
@@ -49,15 +50,15 @@ def handle_list(args, tasks):
 
     for task in filtered:
 
-        done = "[green]done[/]" if task.done else "[dim]todo[/]"
+        done = f"[{theme.done_color}]done[/]" if task.done else f"[{theme.pending_color}]todo[/]"
         extra = ""
 
         if isinstance(task, DeadlineTask):
-            col = "red" if task.is_overdue() else "yellow"
+            col = theme.overdue_color if task.is_overdue() else theme.pending_color
             extra = f"[{col}]{task.due_date}[/]"
 
         elif isinstance(task, PriorityTask):
-            extra = "[magenta]" + "*" * task.priority + "[/]"
+            extra = f"[{theme.priority_color}]{ '*' * task.priority }[/]"
 
         table.add_row(
             str(task.id),
@@ -80,17 +81,17 @@ def handle_done(args, tasks):
         return
     task.complete()
     save_tasks(tasks)
-    console.print(f"[green]Task marked as done:[/] {task}")
+    console.print(f"[{theme.done_color}]Task marked as done:[/] {task}")
 
 
 def handle_delete(args, tasks):
     before = len(tasks)
-    tasks = [t for t in tasks if t.id != args.id]
+    tasks[:] = [t for t in tasks if t.id != args.id]
     if len(tasks) == before:
         console.print(f"[red]Task with ID {args.id} not found[/]")
         return
     save_tasks(tasks)
-    console.print(f"[green]Deleted task with ID {args.id}[/]")
+    console.print(f"[{theme.done_color}]Deleted task with ID {args.id}[/]")
 
 
 
@@ -100,7 +101,7 @@ def handle_interactive(args, tasks):
         console.clear()
 
         # === Rich Table ===
-        table = Table(title="TaskMan Interactive", box=box.ROUNDED, header_style="bold cyan")
+        table = Table(title="TaskMan Interactive", box=getattr(box, theme.border_style), header_style=theme.header_color)
         table.add_column("ID", justify="center", width=4)
         table.add_column("Status", justify="center", width=8)
         table.add_column("Title", min_width=20)
@@ -109,12 +110,12 @@ def handle_interactive(args, tasks):
 
         for task in tasks:
             if isinstance(task, DeadlineTask):
-                extra = f"[red]{task.due_date}[/]" if task.is_overdue() else f"[yellow]{task.due_date}[/]"
+                extra = f"[{theme.overdue_color}]{task.due_date}[/]" if task.is_overdue() else f"[{theme.pending_color}]{task.due_date}[/]"
             elif isinstance(task, PriorityTask):
-                extra = "[magenta]" + "*" * task.priority + "[/]"
+                extra = f"[{theme.priority_color}]{ '*' * task.priority }[/]"
             else:
                 extra = ""
-            status = "[green]done[/]" if task.done else "[white]todo[/]"
+            status = f"[{theme.done_color}]done[/]" if task.done else f"[{theme.pending_color}]todo[/]"
             table.add_row(str(task.id), status, task.title or "", type(task).__name__, extra)
 
         console.print(table)
@@ -182,19 +183,26 @@ def handle_interactive(args, tasks):
 def handle_stats(args, tasks):
     total = len(tasks)
     done = sum(1 for t in tasks if t.done)
-    overdue = sum (1 for t in tasks if isinstance(t,DeadlineTask) and t.is_overdue() and not t.done)
+    overdue = sum(1 for t in tasks if isinstance(t, DeadlineTask) and t.is_overdue() and not t.done)
 
-    pct = int (done / total * 100) if total else 0
+    pct = int(done / total * 100) if total else 0
 
     by_type = {
         'Task': sum(1 for t in tasks if type(t).__name__ == "Task"),
         'DeadlineTask': sum(1 for t in tasks if isinstance(t, DeadlineTask)),
         'PriorityTask': sum(1 for t in tasks if isinstance(t, PriorityTask))
     }
-    body = (f"[bold]{total}[/] total [green]{done}[/] done [red]{overdue}[/] overdue [purple]{pct}%[/]\n")
+
+    body = (
+        f"[bold]{total}[/] total "
+        f"[{theme.done_color}]{done}[/] done "
+        f"[{theme.overdue_color}]{overdue}[/] overdue "
+        f"[{theme.header_color}]{pct}%[/]\n"
+    )
 
     for kind, count in by_type.items():
-        body += f"[cyan]{kind}[/]: {count}\n"
+        body += f"[cyan]{kind:<12}[/]: {count}\n"
+
     console.print(Panel(body, title="TaskMan Stats", box=box.DOUBLE))
 
 
