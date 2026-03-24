@@ -3,6 +3,8 @@ import questionary
 from rich.console import Console
 from rich.table import Table
 from rich import box
+from rich.panel import Panel
+from rich.columns import Columns 
 
 from taskman.models import Task, DeadlineTask, PriorityTask
 from taskman.storage import load_tasks, save_tasks
@@ -177,6 +179,25 @@ def handle_interactive(args, tasks):
                 save_tasks(tasks)
 
 
+def handle_stats(args, tasks):
+    total = len(tasks)
+    done = sum(1 for t in tasks if t.done)
+    overdue = sum (1 for t in tasks if isinstance(t,DeadlineTask) and t.is_overdue() and not t.done)
+
+    pct = int (done / total * 100) if total else 0
+
+    by_type = {
+        'Task': sum(1 for t in tasks if type(t).__name__ == "Task"),
+        'DeadlineTask': sum(1 for t in tasks if isinstance(t, DeadlineTask)),
+        'PriorityTask': sum(1 for t in tasks if isinstance(t, PriorityTask))
+    }
+    body = (f"[bold]{total}[/] total [green]{done}[/] done [red]{overdue}[/] overdue [purple]{pct}%[/]\n")
+
+    for kind, count in by_type.items():
+        body += f"[cyan]{kind}[/]: {count}\n"
+    console.print(Panel(body, title="TaskMan Stats", box=box.DOUBLE))
+
+
 
 
 def main():
@@ -206,7 +227,9 @@ def main():
 
 
     parser_interactive = subparsers.add_parser("interactive")
-    
+
+    parser_stats = subparsers.add_parser("stats")
+
     args = parser.parse_args()
     
     if args.command == "add":
@@ -217,6 +240,8 @@ def main():
         handle_done(args, tasks)
     elif args.command == "delete":
         handle_delete(args, tasks)
+    elif args.command == "stats":
+        handle_stats(args, tasks)
     elif args.command == "interactive":
         handle_interactive(args, tasks)
     else:
