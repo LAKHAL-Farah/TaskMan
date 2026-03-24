@@ -46,7 +46,15 @@ def load_tasks() -> List[Task]:
 
     try:
         raw = json.loads(DATA_FILE.read_text())
-        return [_dict_to_task(d) for d in raw]
+
+        tasks = [_dict_to_task(d) for d in raw]
+
+        if tasks:
+            Task.count = max(t.id for t in tasks) + 1
+        else:
+            Task.count = 0
+
+        return tasks
     except (json.JSONDecodeError, OSError) as e:
         raise StorageError(f"Failed to load tasks from {DATA_FILE}") from e
     except ValidationError as e:
@@ -80,4 +88,8 @@ def load_tasks_verbose(path: Path = DATA_FILE, verbose: bool = False) -> List[Ta
     else:
         tasks = [_dict_to_task(d) for d in raw]
 
+        if tasks:
+            Task.count = max(t.id for t in tasks) + 1
+        else:
+            Task.count = 0
     return tasks

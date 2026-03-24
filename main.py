@@ -1,10 +1,9 @@
 import sys
 from taskman.exceptions import TaskNotFoundError, StorageError, ValidationError, ConfigError
-from taskman.app import main 
 from rich.console import Console
 
 from taskman.cli import main
-if __name__ == '__main__':
+console = Console()
 if __name__ == "__main__":
     try:
         main()
