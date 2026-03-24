@@ -1,5 +1,5 @@
 import argparse
-
+import questionary
 from rich.console import Console
 from rich.table import Table
 from rich import box
@@ -92,6 +92,93 @@ def handle_delete(args, tasks):
 
 
 
+
+def handle_interactive(args, tasks):
+    while True:
+        console.clear()
+
+        # === Rich Table ===
+        table = Table(title="TaskMan Interactive", box=box.ROUNDED, header_style="bold cyan")
+        table.add_column("ID", justify="center", width=4)
+        table.add_column("Status", justify="center", width=8)
+        table.add_column("Title", min_width=20)
+        table.add_column("Type", justify="center", width=14)
+        table.add_column("Extra", justify="center", width=16)
+
+        for task in tasks:
+            if isinstance(task, DeadlineTask):
+                extra = f"[red]{task.due_date}[/]" if task.is_overdue() else f"[yellow]{task.due_date}[/]"
+            elif isinstance(task, PriorityTask):
+                extra = "[magenta]" + "*" * task.priority + "[/]"
+            else:
+                extra = ""
+            status = "[green]done[/]" if task.done else "[white]todo[/]"
+            table.add_row(str(task.id), status, task.title or "", type(task).__name__, extra)
+
+        console.print(table)
+        console.print(f"[dim]{sum(1 for t in tasks if t.done)}/{len(tasks)} complete[/]\n")
+
+        # === Build arrow-key menu with mapping ===
+        menu_map = {}  # map menu string → Task
+        choices = []
+
+        for t in tasks:
+            if not t.done:
+                key = f"[{t.id}] {t.title}"
+                choices.append(key)
+                menu_map[key] = t
+
+        if any(t.done for t in tasks):
+            choices.append("--- done ---")
+
+        for t in tasks:
+            if t.done:
+                key = f"[{t.id}] {t.title} (done)"
+                choices.append(key)
+                menu_map[key] = t
+
+        choices += ["Add new task", "Quit"]
+
+        # === Ask user via arrow keys ===
+        answer = questionary.select("Select a task or action:", choices=choices, qmark="➡").ask()
+
+        if answer in (None, "Quit"):
+            break
+        elif answer == "Add new task":
+            title = questionary.text("Task title:").ask()
+            if title:
+                # optional: ask for priority or due date
+                p = questionary.text("Priority (1-5, leave empty for none):").ask()
+                due = questionary.text("Deadline (YYYY-MM-DD, leave empty for none):").ask()
+                if due:
+                    task = DeadlineTask(title, due)
+                elif p.isdigit():
+                    task = PriorityTask(title, int(p))
+                else:
+                    task = Task(title)
+                tasks.append(task)
+                save_tasks(tasks)
+        else:
+            task = menu_map.get(answer)
+            if not task:
+                continue
+
+            action = questionary.select(
+                f"Task: {task.title}\nAction:",
+                choices=["Mark done", "Delete", "Cancel"],
+                qmark="➡"
+            ).ask()
+
+            if action == "Mark done":
+                task.complete()
+                save_tasks(tasks)
+            elif action == "Delete":
+                tasks[:] = [t for t in tasks if t.id != task.id]
+                save_tasks(tasks)
+
+
+
+
 def main():
     
     tasks = load_tasks()
@@ -116,6 +203,9 @@ def main():
     # delete command
     parser_delete = subparsers.add_parser("delete")
     parser_delete.add_argument("id", type=int)
+
+
+    parser_interactive = subparsers.add_parser("interactive")
     
     args = parser.parse_args()
     
@@ -127,5 +217,7 @@ def main():
         handle_done(args, tasks)
     elif args.command == "delete":
         handle_delete(args, tasks)
+    elif args.command == "interactive":
+        handle_interactive(args, tasks)
     else:
         parser.print_help()
