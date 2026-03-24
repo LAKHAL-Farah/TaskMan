@@ -1,9 +1,14 @@
 import argparse
 
-from colorama import init, Fore, Style
+from rich.console import Console
+from rich.table import Table
+from rich import box
+
 from taskman.models import Task, DeadlineTask, PriorityTask
 from taskman.storage import load_tasks, save_tasks
 
+
+console = Console()
 def handle_add(args,tasks):
     if args.due:
         task = DeadlineTask(args.title, args.due)
@@ -13,45 +18,81 @@ def handle_add(args,tasks):
         task = Task(args.title)
     tasks.append(task)
     save_tasks(tasks)
-    print(Fore.GREEN + f"Added task: {task}" + Style.RESET_ALL)
+
+    console.print(f"[green]Added task:[/] {task}")
+
 
 def handle_list(args, tasks):
+
     filtered = {
-        'done': [ t for t in tasks if t.done],
-        'pending': [ t for t in tasks if not t.done],
+        'done': [t for t in tasks if t.done],
+        'pending': [t for t in tasks if not t.done],
         'all': tasks
     }[args.filter]
+
     if not filtered:
-        print(Fore.YELLOW + "No tasks to show." + Style.RESET_ALL)
+        console.print("[yellow]No tasks to show[/]")
         return
+
+    table = Table(
+        box=box.ROUNDED,
+        header_style="bold purple"
+    )
+
+    table.add_column("ID", width=4)
+    table.add_column("Status", width=8)
+    table.add_column("Title", min_width=22)
+    table.add_column("Type", width=14)
+    table.add_column("Extra", width=16)
+
     for task in filtered:
-        color = Fore.GREEN if task.done else Fore.WHITE
-        print(color + str(task) + Style.RESET_ALL)
+
+        done = "[green]done[/]" if task.done else "[dim]todo[/]"
+        extra = ""
+
+        if isinstance(task, DeadlineTask):
+            col = "red" if task.is_overdue() else "yellow"
+            extra = f"[{col}]{task.due_date}[/]"
+
+        elif isinstance(task, PriorityTask):
+            extra = "[magenta]" + "*" * task.priority + "[/]"
+
+        table.add_row(
+            str(task.id),
+            done,
+            task.title,
+            type(task).__name__,
+            extra
+        )
+
+    console.print(table)
+
+    done_n = sum(1 for t in filtered if t.done)
+    console.print(f"[dim]{done_n}/{len(filtered)} complete[/]")
 
 
 def handle_done(args, tasks):
     task = next((t for t in tasks if t.id == args.id), None)
     if not  task:
-        print(Fore.RED + f"Task with ID {args.id} not found." + Style.RESET_ALL)
+        console.print(f"[red]Task with ID {args.id} not found[/]")
         return
     task.complete()
     save_tasks(tasks)
-    print(Fore.GREEN + f"Task marked as done: {task}" + Style.RESET_ALL)
+    console.print(f"[green]Task marked as done:[/] {task}")
+
 
 def handle_delete(args, tasks):
     before = len(tasks)
     tasks = [t for t in tasks if t.id != args.id]
     if len(tasks) == before:
-        print(Fore.RED + f"Task with ID {args.id} not found." + Style.RESET_ALL)
+        console.print(f"[red]Task with ID {args.id} not found[/]")
         return
     save_tasks(tasks)
-    print(Fore.GREEN + f"Deleted task with ID {args.id}." + Style.RESET_ALL)
-        
+    console.print(f"[green]Deleted task with ID {args.id}[/]")
 
 
 
 def main():
-    init(autoreset=True)  # colorama
     
     tasks = load_tasks()
     
