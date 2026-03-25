@@ -19,7 +19,7 @@ from taskman.storage import load_tasks, save_tasks, load_tasks_verbose, DATA_FIL
 from taskman.repository import JsonTaskRepo
 
 from taskman.sorters import SORTERS
-
+from taskman.factory import TaskFactory
 
 cfg = Config.load()        
 theme = get_theme(cfg)
@@ -42,12 +42,11 @@ def undo_last():
 
 
 def handle_add(args, repo):
-    if args.due:
-        task = DeadlineTask(args.title, args.due)
-    elif args.priority:
-        task = PriorityTask(args.title, args.priority)
-    else:
-        task = Task(args.title)
+    task = TaskFactory.create(
+        title=args.title,
+        due=args.due,
+        priority=args.priority
+    )
     run(AddTaskCommand(repo, task))
 
     console.print(f"[{theme.done_color}]Added task:[/] {task}")
@@ -196,13 +195,15 @@ def handle_interactive(args, repo):
             if title:
                 p = questionary.text("Priority (1-5, leave empty for none):").ask()
                 due = questionary.text("Deadline (YYYY-MM-DD, leave empty for none):").ask()
-                if due:
-                    task = DeadlineTask(title, due)
-                elif p.isdigit():
-                    task = PriorityTask(title, int(p))
-                else:
-                    task = Task(title)
+                task = TaskFactory.create(
+                    title=title,
+                    due=due if due else None,
+                    priority=int(p) if p.isdigit() else None
+                )
+
                 run(AddTaskCommand(repo, task)) 
+                console.print(f"[{theme.done_color}]Added task:[/] {task}")
+                EventBus.publish(TaskEvent('created', task.id, task.title))
         elif answer == "Undo last action":
             undo_last()
         else:
