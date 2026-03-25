@@ -1,5 +1,4 @@
-from .models import Task, DeadlineTask, PriorityTask
-from .storage import load_tasks, save_tasks
+from taskman.core import Task, DeadlineTask, PriorityTask, load_tasks, save_tasks
 
 
 __version__ = "1.0.0"

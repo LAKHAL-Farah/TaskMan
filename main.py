@@ -4,8 +4,14 @@ from rich.console import Console
 
 from taskman.cli import main
 
-from taskman.config import Config, handle_config_set, ConfigError
-from taskman.themes import get_theme
+from taskman.config import Config, ConfigError
+from taskman.config import get_theme
+
+from taskman.events import EventBus
+from taskman.events import LogObserver
+
+LOG_PATH = 'history.log'
+EventBus.subscribe(LogObserver(LOG_PATH))
 cfg = Config.load()
 theme = get_theme(cfg)
 console = Console()

@@ -1,9 +1,4 @@
-from taskman.events import TaskEvent
+# Backward compatibility wrapper - imports moved to taskman.events module
+from taskman.events.observers import LogObserver
 
-class LogObserver:
-    def __init__(self, log_path):
-        self.path = log_path
-
-    def __call__(self, event: TaskEvent) -> None:
-        with open(self.path, 'a') as f:
-            f.write(f'{event.timestamp} {event.kind}: {event.title}\n')
+__all__ = ['LogObserver']

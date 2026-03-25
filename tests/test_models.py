@@ -1,6 +1,6 @@
 # tests/test_models.py
 import pytest
-from taskman.models import Task, DeadlineTask, PriorityTask
+from taskman.core import Task, DeadlineTask, PriorityTask
 from datetime import datetime, timedelta
 
 def test_task_creation():
