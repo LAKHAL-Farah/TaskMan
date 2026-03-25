@@ -7,6 +7,8 @@ from rich.panel import Panel
 from rich.columns import Columns 
 from taskman.themes import get_theme
 import shutil
+from taskman.events import EventBus, TaskEvent
+from taskman.observers import LogObserver
 
 
 from taskman.config import Config, handle_config_set, ConfigError
@@ -19,6 +21,12 @@ from taskman.repository import JsonTaskRepo
 cfg = Config.load()        
 theme = get_theme(cfg)
 console = Console()
+LOG_PATH = "history.log"
+EventBus.subscribe(LogObserver(LOG_PATH))
+
+
+
+
 def handle_add(args, repo):
     if args.due:
         task = DeadlineTask(args.title, args.due)
@@ -29,6 +37,7 @@ def handle_add(args, repo):
     repo.save(task)
 
     console.print(f"[{theme.done_color}]Added task:[/] {task}")
+    EventBus.publish(TaskEvent('created', task.id, task.title))
 
 
 def handle_list(args, repo):
@@ -77,6 +86,7 @@ def handle_list(args, repo):
     console.print(table)
     done_n = sum(1 for t in filtered if t.done)
     console.print(f"[dim]{done_n}/{len(filtered)} complete[/]")
+    
 
 def handle_done(args, repo):
     task= repo.get_by_id(args.id)
@@ -89,11 +99,13 @@ def handle_done(args, repo):
     task.complete()
     repo.save(task)
     console.print(f"[{theme.done_color}]Task marked as done:[/] {task}")
+    EventBus.publish(TaskEvent('completed', task.id, task.title))
 
 
 def handle_delete(args, repo):
     try:
         repo.delete(args.id)
+        EventBus.publish(TaskEvent('deleted', args.id, "Task deleted"))
         console.print(f"[{theme.done_color}]Deleted task with ID {args.id}[/]")
     except Exception as e:
         console.print(f"[red]Error deleting task with ID {args.id}: {e}[/]")
