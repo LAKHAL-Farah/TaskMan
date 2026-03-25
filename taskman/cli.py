@@ -10,23 +10,23 @@ import shutil
 
 from taskman.models import Task, DeadlineTask, PriorityTask
 from taskman.storage import load_tasks, save_tasks, load_tasks_verbose, DATA_FILE
-
+from taskman.repository import JsonTaskRepo
 
 console = Console()
-def handle_add(args,tasks):
+def handle_add(args, repo):
     if args.due:
         task = DeadlineTask(args.title, args.due)
     elif args.priority:
         task = PriorityTask(args.title, args.priority)
     else:
         task = Task(args.title)
-    tasks.append(task)
-    save_tasks(tasks)
+    repo.save(task)
 
     console.print(f"[{theme.done_color}]Added task:[/] {task}")
 
 
-def handle_list(args, tasks):
+def handle_list(args, repo):
+    tasks = repo.get_all()
 
     filtered = {
         'done': [t for t in tasks if t.done],
@@ -50,7 +50,6 @@ def handle_list(args, tasks):
     table.add_column("Extra", width=16)
 
     for task in filtered:
-
         done = f"[{theme.done_color}]done[/]" if task.done else f"[{theme.pending_color}]todo[/]"
         extra = ""
 
@@ -70,13 +69,11 @@ def handle_list(args, tasks):
         )
 
     console.print(table)
-
     done_n = sum(1 for t in filtered if t.done)
     console.print(f"[dim]{done_n}/{len(filtered)} complete[/]")
 
-
-def handle_done(args, tasks):
-    task = next((t for t in tasks if t.id == args.id), None)
+def handle_done(args, repo):
+    task= repo.get_by_id(args.id)
     if not  task:
         console.print(f"[red]Task with ID {args.id} not found[/]")
         return
@@ -84,28 +81,30 @@ def handle_done(args, tasks):
         console.print(f"[yellow]Task with ID {args.id} is already marked as done[/]")
         return
     task.complete()
-    save_tasks(tasks)
+    repo.save(task)
     console.print(f"[{theme.done_color}]Task marked as done:[/] {task}")
 
 
-def handle_delete(args, tasks):
-    before = len(tasks)
-    tasks[:] = [t for t in tasks if t.id != args.id]
-    if len(tasks) == before:
-        console.print(f"[red]Task with ID {args.id} not found[/]")
-        return
-    save_tasks(tasks)
-    console.print(f"[{theme.done_color}]Deleted task with ID {args.id}[/]")
+def handle_delete(args, repo):
+    try:
+        repo.delete(args.id)
+        console.print(f"[{theme.done_color}]Deleted task with ID {args.id}[/]")
+    except Exception as e:
+        console.print(f"[red]Error deleting task with ID {args.id}: {e}[/]")
 
 
 
 
-def handle_interactive(args, tasks):
+
+def handle_interactive(args, repo):
     while True:
         console.clear()
+        tasks = repo.get_all()  # avoid repeated calls
 
         # === Rich Table ===
-        table = Table(title="TaskMan Interactive", box=getattr(box, theme.border_style), header_style=theme.header_color)
+        table = Table(title="TaskMan Interactive",
+                      box=getattr(box, theme.border_style),
+                      header_style=theme.header_color)
         table.add_column("ID", justify="center", width=4)
         table.add_column("Status", justify="center", width=8)
         table.add_column("Title", min_width=20)
@@ -125,8 +124,8 @@ def handle_interactive(args, tasks):
         console.print(table)
         console.print(f"[dim]{sum(1 for t in tasks if t.done)}/{len(tasks)} complete[/]\n")
 
-        # === Build arrow-key menu with mapping ===
-        menu_map = {}  # map menu string → Task
+        # === Build menu mapping ===
+        menu_map = {}
         choices = []
 
         for t in tasks:
@@ -154,7 +153,6 @@ def handle_interactive(args, tasks):
         elif answer == "Add new task":
             title = questionary.text("Task title:").ask()
             if title:
-                # optional: ask for priority or due date
                 p = questionary.text("Priority (1-5, leave empty for none):").ask()
                 due = questionary.text("Deadline (YYYY-MM-DD, leave empty for none):").ask()
                 if due:
@@ -163,8 +161,7 @@ def handle_interactive(args, tasks):
                     task = PriorityTask(title, int(p))
                 else:
                     task = Task(title)
-                tasks.append(task)
-                save_tasks(tasks)
+                repo.save(task)
         else:
             task = menu_map.get(answer)
             if not task:
@@ -178,13 +175,16 @@ def handle_interactive(args, tasks):
 
             if action == "Mark done":
                 task.complete()
-                save_tasks(tasks)
+                repo.save(task)
             elif action == "Delete":
-                tasks[:] = [t for t in tasks if t.id != task.id]
-                save_tasks(tasks)
+                repo.delete(task.id)
 
 
-def handle_stats(args, tasks):
+
+
+
+def handle_stats(args, repo):
+    tasks = repo.get_all()
     total = len(tasks)
     done = sum(1 for t in tasks if t.done)
     overdue = sum(1 for t in tasks if isinstance(t, DeadlineTask) and t.is_overdue() and not t.done)
@@ -192,9 +192,9 @@ def handle_stats(args, tasks):
     pct = int(done / total * 100) if total else 0
 
     by_type = {
-        'Task': sum(1 for t in tasks if type(t).__name__ == "Task"),
-        'DeadlineTask': sum(1 for t in tasks if isinstance(t, DeadlineTask)),
-        'PriorityTask': sum(1 for t in tasks if isinstance(t, PriorityTask))
+        'Task': sum(isinstance(t, Task) and not isinstance(t, (DeadlineTask, PriorityTask)) for t in tasks),
+        'DeadlineTask': sum(isinstance(t, DeadlineTask) for t in tasks),
+        'PriorityTask': sum(isinstance(t, PriorityTask) for t in tasks)
     }
 
     body = (
@@ -211,17 +211,24 @@ def handle_stats(args, tasks):
 
 
 
-def handle_repair(args, _):
+def handle_repair(args, repo=None):
+    """Restore the latest backup of tasks.json"""
     backups = sorted(DATA_FILE.parent.glob("*.bak"))
 
     if not backups:
-        print("No backups found.")
+        console.print("[yellow]No backups found.[/]")
         return
 
     latest = backups[-1]
-    shutil.copy(latest, DATA_FILE)
 
-    print(f"Restored from {latest.name}")
+    try:
+        shutil.copy(latest, DATA_FILE)
+        console.print(f"[green]Restored from {latest.name}[/]")
+    except Exception as e:
+        console.print(f"[red]Failed to restore backup: {e}[/]")
+
+    if repo:
+        repo.get_all()  
 
 
 
@@ -259,6 +266,7 @@ def main():
     repair_parser = subparsers.add_parser("repair", help="Restore latest backup")
 
     args = parser.parse_args()
+    repo = JsonTaskRepo(DATA_FILE)  
 
 
     if args.command == "repair":
@@ -268,20 +276,18 @@ def main():
 
 
 
-    tasks = load_tasks_verbose(verbose=args.verbose)
-
     if args.command == "add":
-        handle_add(args, tasks)
+        handle_add(args, repo)
     elif args.command == "list":
-        handle_list(args, tasks)
+        handle_list(args, repo)
     elif args.command == "done":
-        handle_done(args, tasks)
+        handle_done(args, repo)
     elif args.command == "delete":
-        handle_delete(args, tasks)
+        handle_delete(args, repo)
     elif args.command == "stats":
-        handle_stats(args, tasks)
+        handle_stats(args, repo)
     elif args.command == "interactive":
-        handle_interactive(args, tasks)
+        handle_interactive(args, repo)
     else:
         parser.print_help()
 

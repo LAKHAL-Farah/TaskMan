@@ -151,3 +151,6 @@ def load_tasks_verbose(path: Path = DATA_FILE, verbose: bool = False) -> List[Ta
         Task.count = 0
 
     return tasks
+
+
+    

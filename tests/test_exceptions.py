@@ -52,7 +52,7 @@ def test_configerror_message():
 # Catching at the top level
 # ----------------------
 def test_catching_hierarchy():
-    # Each exception should be catchable as both its type and the base
+
     for exc_class in [TaskNotFoundError, StorageError, ValidationError, ConfigError]:
         with pytest.raises(TaskManError):
             raise exc_class("test") if exc_class != TaskNotFoundError else exc_class(1)
