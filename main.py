@@ -1,5 +1,5 @@
 import sys
-from taskman.exceptions import TaskNotFoundError, StorageError, ValidationError, ConfigError
+from taskman.exceptions import TaskNotFoundError, StorageError, ValidationError, ConfigError, TaskManError
 from rich.console import Console
 
 from taskman.cli import main

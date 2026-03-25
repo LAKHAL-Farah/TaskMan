@@ -6,9 +6,10 @@ from rich import box
 from rich.panel import Panel
 from rich.columns import Columns 
 from taskman.themes import theme
+import shutil
 
 from taskman.models import Task, DeadlineTask, PriorityTask
-from taskman.storage import load_tasks, save_tasks, load_tasks_verbose
+from taskman.storage import load_tasks, save_tasks, load_tasks_verbose, DATA_FILE
 
 
 console = Console()
@@ -207,6 +208,17 @@ def handle_stats(args, tasks):
 
 
 
+def handle_repair(args, _):
+    backups = sorted(DATA_FILE.parent.glob("*.bak"))
+
+    if not backups:
+        print("No backups found.")
+        return
+
+    latest = backups[-1]
+    shutil.copy(latest, DATA_FILE)
+
+    print(f"Restored from {latest.name}")
 
 def main():
     parser = argparse.ArgumentParser(description="Task Manager CLI")
@@ -238,7 +250,16 @@ def main():
     # stats command
     parser_stats = subparsers.add_parser("stats")
 
+    repair_parser = subparsers.add_parser("repair", help="Restore latest backup")
+
     args = parser.parse_args()
+
+
+    if args.command == "repair":
+        handle_repair(args,None)
+        return
+
+
 
 
     tasks = load_tasks_verbose(verbose=args.verbose)
@@ -257,3 +278,6 @@ def main():
         handle_interactive(args, tasks)
     else:
         parser.print_help()
+
+
+
