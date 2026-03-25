@@ -1,5 +1,18 @@
 # TaskMan CLI
 > A command-line task manager built with Python OOP, argparse, and JSON persistence.
+
+
+1. **Main List View** (`python main.py list`)
+   ![alt text](image-1.png)
+  
+
+2. **Stats View** (`python main.py stats`)
+   ![alt text](image-2.png)
+
+3. **Interactive Mode** (`python main.py interactive`)
+   ![alt text](image-4.png)
+ 
+
 ## Features
 - Add plain tasks, tasks with deadlines, or priority tasks
 - List tasks with filters: all / done / pending
@@ -147,26 +160,3 @@ taskman/
 - Uses Rich for a polished terminal experience
 - **Modular design**: Loosely-coupled modules enable easy testing and extensions
 
-## Screenshots
-
-To add screenshots to this README:
-
-1. **Main List View** (`python main.py list`)
-   - Capture the Rich table showing all tasks with colors
-   - Place: After the **Usage** section
-   - Description: Shows task display with ID, status, title, type, and extras (due date/priority)
-
-2. **Stats View** (`python main.py stats`)
-   - Capture the stats panel showing totals, done count, overdue, and breakdown by type
-   - Place: In Features or Usage section
-   - Description: Display project statistics
-
-3. **Interactive Mode** (`python main.py interactive`)
-   - Capture the arrow-key menu with task selection UI
-   - Place: In Features section
-   - Description: Shows interactive task management interface
-
-4. **Themes Comparison** 
-   - Capture the same list view in different themes (`default`, `minimal`, `dracula`)
-   - Place: Near the Customizable themes feature
-   - Description: Visual comparison of theme styling
