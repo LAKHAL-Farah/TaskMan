@@ -18,6 +18,9 @@ from taskman.models import Task, DeadlineTask, PriorityTask
 from taskman.storage import load_tasks, save_tasks, load_tasks_verbose, DATA_FILE
 from taskman.repository import JsonTaskRepo
 
+from taskman.sorters import SORTERS
+
+
 cfg = Config.load()        
 theme = get_theme(cfg)
 console = Console()
@@ -63,6 +66,13 @@ def handle_list(args, repo):
     if not filtered:
         console.print("[yellow]No tasks to show[/]")
         return
+
+    if hasattr(args, "sort") and args.sort:  
+        sorter = SORTERS.get(args.sort)
+        if sorter:
+            filtered = sorter.sort(filtered)   
+
+
 
     table = Table(
         box=getattr(box, theme.border_style),
@@ -279,8 +289,8 @@ def main():
 
     # list command
     parser_list = subparsers.add_parser("list")
-    parser_list.add_argument("--filter", choices=["all","done","pending"], default="all")
-
+    parser_list.add_argument("--filter", choices=["all", "done", "pending"], default="all")
+    parser_list.add_argument("--sort", choices=["priority", "due", "title"], help="Sort tasks by specified criteria")
     # done command
     parser_done = subparsers.add_parser("done")
     parser_done.add_argument("id", type=int)
