@@ -80,6 +80,9 @@ def handle_done(args, tasks):
     if not  task:
         console.print(f"[red]Task with ID {args.id} not found[/]")
         return
+    if task.done:
+        console.print(f"[yellow]Task with ID {args.id} is already marked as done[/]")
+        return
     task.complete()
     save_tasks(tasks)
     console.print(f"[{theme.done_color}]Task marked as done:[/] {task}")
@@ -219,6 +222,9 @@ def handle_repair(args, _):
     shutil.copy(latest, DATA_FILE)
 
     print(f"Restored from {latest.name}")
+
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="Task Manager CLI")
