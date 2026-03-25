@@ -10,7 +10,7 @@ import shutil
 from taskman.events import EventBus, TaskEvent
 from taskman.observers import LogObserver
 
-
+from taskman.commands import AddTaskCommand, CompleteTaskCommand, DeleteTaskCommand, Command
 from taskman.config import Config, handle_config_set, ConfigError
 
 
@@ -24,7 +24,18 @@ console = Console()
 LOG_PATH = "history.log"
 EventBus.subscribe(LogObserver(LOG_PATH))
 
+history: list[Command] = []
 
+def run(cmd: Command):
+    cmd.execute()
+    history.append(cmd)
+
+def undo_last():
+    if history:
+        history.pop().undo()
+        console.print("[green]Last action undone[/]")
+    else:
+        console.print("[yellow]Nothing to undo[/]")
 
 
 def handle_add(args, repo):
@@ -34,7 +45,7 @@ def handle_add(args, repo):
         task = PriorityTask(args.title, args.priority)
     else:
         task = Task(args.title)
-    repo.save(task)
+    run(AddTaskCommand(repo, task))
 
     console.print(f"[{theme.done_color}]Added task:[/] {task}")
     EventBus.publish(TaskEvent('created', task.id, task.title))
@@ -96,15 +107,15 @@ def handle_done(args, repo):
     if task.done:
         console.print(f"[yellow]Task with ID {args.id} is already marked as done[/]")
         return
-    task.complete()
-    repo.save(task)
+    run(CompleteTaskCommand(repo, task.id))  
+
     console.print(f"[{theme.done_color}]Task marked as done:[/] {task}")
     EventBus.publish(TaskEvent('completed', task.id, task.title))
 
 
 def handle_delete(args, repo):
     try:
-        repo.delete(args.id)
+        run(DeleteTaskCommand(repo, args.id))
         EventBus.publish(TaskEvent('deleted', args.id, "Task deleted"))
         console.print(f"[{theme.done_color}]Deleted task with ID {args.id}[/]")
     except Exception as e:
@@ -162,6 +173,8 @@ def handle_interactive(args, repo):
                 menu_map[key] = t
 
         choices += ["Add new task", "Quit"]
+        choices += ["Undo last action"]
+
 
         # === Ask user via arrow keys ===
         answer = questionary.select("Select a task or action:", choices=choices, qmark="➡").ask()
@@ -179,7 +192,9 @@ def handle_interactive(args, repo):
                     task = PriorityTask(title, int(p))
                 else:
                     task = Task(title)
-                repo.save(task)
+                run(AddTaskCommand(repo, task)) 
+        elif answer == "Undo last action":
+            undo_last()
         else:
             task = menu_map.get(answer)
             if not task:
@@ -192,10 +207,9 @@ def handle_interactive(args, repo):
             ).ask()
 
             if action == "Mark done":
-                task.complete()
-                repo.save(task)
+                run(CompleteTaskCommand(repo, task.id))
             elif action == "Delete":
-                repo.delete(task.id)
+                run(DeleteTaskCommand(repo, task.id))
 
 
 
@@ -283,12 +297,19 @@ def main():
 
     repair_parser = subparsers.add_parser("repair", help="Restore latest backup")
 
+    parser_undo = subparsers.add_parser("undo", help="Undo last action")
+
 
     parser_config = subparsers.add_parser("config", help="Manage config settings")
     parser_config.add_argument("--set", help="Set a config key=value")
 
     args = parser.parse_args()
     repo = JsonTaskRepo(DATA_FILE)  
+    existing_tasks = repo.get_all()
+    if existing_tasks:
+        Task.count = max(t.id for t in existing_tasks) + 1
+    else:
+        Task.count = 0
 
 
     if args.command == "repair":
@@ -299,6 +320,9 @@ def main():
         handle_config_set(args, None)
         return
 
+    if args.command == "undo":
+        undo_last()
+        return
 
 
 

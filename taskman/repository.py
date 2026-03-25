@@ -3,7 +3,7 @@ from typing import List, Optional
 from taskman.models import Task
 from taskman.storage import load_tasks, save_tasks, DATA_FILE, load_tasks_verbose
 from taskman.exceptions import TaskManError, StorageError, ValidationError
-
+from taskman.exceptions import TaskNotFoundError
 
 
 class AbstractTaskRepository(ABC):
@@ -29,11 +29,19 @@ class JsonTaskRepo(AbstractTaskRepository):
 
     def save(self, task: Task) -> None:
         tasks = self.get_all()
-        existing = self.get_by_id(task.id)
+
+        if task.id == -1:
+            max_id = max([t.id for t in tasks], default=-1)
+            task.id = max_id + 1
+
+        existing = next((t for t in tasks if t.id == task.id), None)
         if existing:
             tasks = [t if t.id != task.id else task for t in tasks]
         else:
             tasks.append(task)
+
+        Task.count = max(Task.count, max(t.id for t in tasks) + 1)
+
         save_tasks(tasks)
 
     def delete(self, id: int) -> None:
@@ -42,4 +50,4 @@ class JsonTaskRepo(AbstractTaskRepository):
         tasks = [t for t in tasks if t.id != id]
         save_tasks(tasks)
         if before == len(tasks):
-            raise TaskNotFoundError(id)
+            raise ValueError(f"Task with ID {id} not found")
