@@ -3,7 +3,13 @@ from taskman.exceptions import TaskNotFoundError, StorageError, ValidationError,
 from rich.console import Console
 
 from taskman.cli import main
+
+from taskman.config import Config, handle_config_set, ConfigError
+from taskman.themes import get_theme
+cfg = Config.load()
+theme = get_theme(cfg)
 console = Console()
+
 if __name__ == "__main__":
     try:
         main()

@@ -5,13 +5,19 @@ from rich.table import Table
 from rich import box
 from rich.panel import Panel
 from rich.columns import Columns 
-from taskman.themes import theme
+from taskman.themes import get_theme
 import shutil
+
+
+from taskman.config import Config, handle_config_set, ConfigError
+
 
 from taskman.models import Task, DeadlineTask, PriorityTask
 from taskman.storage import load_tasks, save_tasks, load_tasks_verbose, DATA_FILE
 from taskman.repository import JsonTaskRepo
 
+cfg = Config.load()        
+theme = get_theme(cfg)
 console = Console()
 def handle_add(args, repo):
     if args.due:
@@ -265,12 +271,20 @@ def main():
 
     repair_parser = subparsers.add_parser("repair", help="Restore latest backup")
 
+
+    parser_config = subparsers.add_parser("config", help="Manage config settings")
+    parser_config.add_argument("--set", help="Set a config key=value")
+
     args = parser.parse_args()
     repo = JsonTaskRepo(DATA_FILE)  
 
 
     if args.command == "repair":
         handle_repair(args,None)
+        return
+
+    if args.command == "config" and args.set:
+        handle_config_set(args, None)
         return
 
 

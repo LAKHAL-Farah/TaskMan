@@ -18,7 +18,7 @@ THEMES = {
     'dracula': Theme('dracula', done_color='bright_green', header_color='bold magenta'),
 }
 
-theme = THEMES['default']
+
 
 def get_theme(config) -> Theme:
     return THEMES.get(getattr(config, 'theme', None), THEMES['default'])
