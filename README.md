@@ -10,6 +10,11 @@
 - Customizable themes: `default`, `minimal`, `dracula`
 - Animated progress bars when loading tasks (`--verbose`)
 - Tasks persist between sessions (JSON file in `~/.taskman/tasks.json`)
+- **Custom exception hierarchy** (`TaskManError` base, `TaskNotFoundError`, `StorageError`, `ValidationError`, `ConfigError`)
+- **Data validation**: titles, due dates, and priority fields are validated
+- **Automatic recovery** from corrupted task files: backups created, valid tasks restored
+- **Idempotent operations**: marking done twice or deleting non-existent tasks is safe
+- **Robust error handling**: all storage and validation errors caught and reported gracefully
 
 ## Usage
 ```bash
@@ -34,6 +39,9 @@ python main.py stats
 
 # Verbose mode with animated progress
 python main.py list --verbose
+
+# Repair corrupted tasks file
+python main.py repair
 ```
 ## Architecture
 | File | Responsibility |
@@ -44,3 +52,11 @@ python main.py list --verbose
 | cli.py | argparse setup, command handlers, Rich tables, interactive mode |
 | main.py | Entry point |
 | tests/ | Unit tests for tasks and functionality |
+
+
+## Highlights
+- Demonstrates professional Python patterns: OOP, error boundaries, idempotency
+- Shows robust CLI behavior with validation, recovery, and informative messages
+- Includes automated recovery system for corrupted JSON files
+- Uses Rich for a polished terminal experience
+- Fully tested with pytest (fixtures, parametrization, exception testing)
