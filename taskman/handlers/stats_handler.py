@@ -20,11 +20,16 @@ def handle_stats(args, repo: JsonTaskRepo, theme):
         'PriorityTask': sum(isinstance(t, PriorityTask) for t in tasks)
     }
 
+    # Build stats string, handling empty theme colors
+    done_str = f"[{theme.done_color}]{done}[/]" if theme.done_color else str(done)
+    overdue_str = f"[{theme.overdue_color}]{overdue}[/]" if theme.overdue_color else str(overdue)
+    pct_str = f"[{theme.header_color}]{pct}%[/]" if theme.header_color else f"{pct}%"
+    
     body = (
         f"[bold]{total}[/] total "
-        f"[{theme.done_color}]{done}[/] done "
-        f"[{theme.overdue_color}]{overdue}[/] overdue "
-        f"[{theme.header_color}]{pct}%[/]\n"
+        f"{done_str} done "
+        f"{overdue_str} overdue "
+        f"{pct_str}\n"
     )
 
     for kind, count in by_type.items():
