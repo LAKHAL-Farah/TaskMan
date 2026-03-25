@@ -9,7 +9,7 @@ from taskman.themes import get_theme
 import shutil
 from taskman.events import EventBus, TaskEvent
 from taskman.observers import LogObserver
-
+from taskman.decorators import OverdueDecorator, UrgentDecorator
 from taskman.commands import AddTaskCommand, CompleteTaskCommand, DeleteTaskCommand, Command
 from taskman.config import Config, handle_config_set, ConfigError
 
@@ -53,6 +53,14 @@ def handle_add(args, repo):
     EventBus.publish(TaskEvent('created', task.id, task.title))
 
 
+def _decorate(task):
+    if isinstance(task, DeadlineTask) and task.is_overdue():
+        return OverdueDecorator(task)
+    if isinstance(task, PriorityTask) and task.priority == 5:
+        return UrgentDecorator(task)
+    return task
+
+
 def handle_list(args, repo):
     tasks = repo.get_all()
 
@@ -84,28 +92,34 @@ def handle_list(args, repo):
     table.add_column("Type", width=14)
     table.add_column("Extra", width=16)
 
-    for task in filtered:
-        done = f"[{theme.done_color}]done[/]" if task.done else f"[{theme.pending_color}]todo[/]"
+    tasks_to_show = [_decorate(t) for t in filtered]
+
+
+    
+    for task in tasks_to_show:
+        done = f"[{theme.done_color}]done[/]" if task.done else f"[{theme.  pending_color}]todo[/]"
         extra = ""
 
-        if isinstance(task, DeadlineTask):
-            col = theme.overdue_color if task.is_overdue() else theme.pending_color
-            extra = f"[{col}]{task.due_date}[/]"
+    # safely get the original task object
+        raw_task = getattr(task, "_task", task)
 
-        elif isinstance(task, PriorityTask):
-            extra = f"[{theme.priority_color}]{ '*' * task.priority }[/]"
+        if isinstance(raw_task, DeadlineTask):
+            col = theme.overdue_color if raw_task.is_overdue() else theme.  pending_color
+            extra = f"[{col}]{raw_task.due_date}[/]"
+
+        elif isinstance(raw_task, PriorityTask):
+            extra = f"[{theme.priority_color}]{ '*' * raw_task.priority }[/]"
 
         table.add_row(
-            str(task.id),
+            str(raw_task.id),
             done,
-            task.title,
-            type(task).__name__,
+            str(task),  # this calls the decorator __str__ if decorated
+            type(raw_task).__name__,
             extra
         )
-
-    console.print(table)
-    done_n = sum(1 for t in filtered if t.done)
-    console.print(f"[dim]{done_n}/{len(filtered)} complete[/]")
+        console.print(table)
+        done_n = sum(1 for t in filtered if t.done)
+        console.print(f"[dim]{done_n}/{len(filtered)} complete[/]")
     
 
 def handle_done(args, repo):
@@ -137,8 +151,7 @@ def handle_delete(args, repo):
 def handle_interactive(args, repo):
     while True:
         console.clear()
-        tasks = repo.get_all()  # avoid repeated calls
-
+        tasks = [_decorate(t) for t in repo.get_all()]
         # === Rich Table ===
         table = Table(title="TaskMan Interactive",
                       box=getattr(box, theme.border_style),
